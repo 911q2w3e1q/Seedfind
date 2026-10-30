@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.spec
+build/
+dist/
+*.egg-info/
+.venv/
+# 打包/构建
+build_windows.bat 可重新生成，保留
+# 系统/IDE
+.DS_Store
+Thumbs.db
+# 沙箱
+.codebuddy/
