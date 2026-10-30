@@ -2,8 +2,8 @@
 """
 Minecraft 种子查询器 —— 主程序（tkinter GUI）
 功能：
-  [种子查询] 支持 MC 1.0~1.21 全部 Java 版本，查询生物群系地图、结构坐标、
-             框选区域、方块/矿石搜索（基于官方生成参数）、3D 预览。
+  [种子查询] 支持 MC 1.0~1.21（下拉最新显示为 26.3）全部 Java 版本，查询生物群系地图、
+             结构坐标、结构 3D 形状、框选区域、方块/矿石搜索（基于官方生成参数）、3D 预览。
   [存档查询] 读取本地存档 .mca，仅显示已加载区块的真实方块与顶部地图。
 """
 import tkinter as tk
@@ -20,6 +20,7 @@ import numpy as np
 import engine
 import ores
 import saves
+import structures_3d
 from mapview import MapView
 
 
@@ -251,6 +252,10 @@ class App(tk.Tk):
             row=row, column=1, columnspan=2, sticky="we")
         row += 1
 
+        ttk.Button(ctrls, text="查看结构 3D 形状", command=self._on_view_struct_3d).grid(
+            row=row, column=0, columnspan=3, sticky="we", pady=2)
+        row += 1
+
         # 方块/矿石查询
         ttk.Separator(ctrls, orient="horizontal").grid(row=row, column=0, columnspan=3, sticky="we", pady=4)
         row += 1
@@ -475,6 +480,76 @@ class App(tk.Tk):
         except ValueError:
             ymax = None
         return ymin, ymax
+
+    # ---- 结构 3D 形状查看 ----
+    def _on_view_struct_3d(self):
+        if self.seed_gen is None:
+            self._err("请先生成地图。")
+            return
+        sel = self.seed_struct_combo.get()
+        item = next((s for s in self._seed_struct_items if s["cn"] == sel), None)
+        if not item:
+            return
+        key = item["key"]
+
+        # 确定展示位置：优先用结果列表选中的行，其次第一个找到的点，最后出生点
+        x = z = y = None
+        rows = self.seed_tree.selection()
+        if rows:
+            v = self.seed_tree.item(rows[0], "values")
+            try:
+                x = int(v[1]); z = int(v[3])
+                y = None if v[2] in ("", "-") else int(v[2])
+            except Exception:
+                x = z = y = None
+        if x is None and self.seed_struct_points:
+            px, pz, py = self.seed_struct_points[0]
+            x, z, y = px, pz, py
+        if x is None:
+            sx, sz = engine.get_spawn(self.seed_gen)
+            x, z = sx, sz
+        if y is None:
+            y = engine.estimate_height(self.seed_gen, x, z)
+        self._open_struct_3d_window(key, x, z, y)
+
+    def _open_struct_3d_window(self, key, x, z, y):
+        import matplotlib
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
+                                                      NavigationToolbar2Tk)
+
+        # 中文字体
+        for cjk in ["SimHei", "Microsoft YaHei", "WenQuanYi Micro Hei",
+                    "Noto Sans CJK SC", "Arial Unicode MS", "PingFang SC"]:
+            try:
+                matplotlib.font_manager.findfont(cjk, fallback_to_default=False)
+                matplotlib.rcParams["font.sans-serif"] = [cjk]
+                matplotlib.rcParams["axes.unicode_minus"] = False
+                break
+            except Exception:
+                continue
+
+        m = structures_3d.get_model(key)
+        cn = m["cn"] if m else key
+        win = tk.Toplevel(self)
+        win.title(f"结构 3D 形状：{cn}  @ ({x}, {z})")
+        win.geometry("660x580")
+        fig = Figure(figsize=(6.4, 5.2), dpi=100)
+        ax = fig.add_subplot(111, projection="3d")
+        ok = structures_3d.draw_model_3d(
+            ax, key, x, z, y,
+            title=f"{cn}  @ X{x} Z{z}（尺寸为近似示意）")
+        if not ok:
+            ax.text(0, 0, 0, "该结构暂无 3D 模型")
+        canvas = FigureCanvasTkAgg(fig, master=win)
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+        NavigationToolbar2Tk(canvas, win).pack()
+        fig.tight_layout()
+        canvas.draw()
+        ttk.Label(
+            win,
+            text="说明：结构外形为基于真实尺寸的示意模型，用于直观查看大小与比例，并非逐方块还原。",
+            foreground="#888888", wraplength=620).pack(side="bottom")
 
     # ---- 矿石搜索 ----
     def _on_search_ore(self):
