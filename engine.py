@@ -2,7 +2,7 @@
 """
 Minecraft Java 版世界生成引擎封装。
 底层使用 cubiomespi（Cubiomes 的 Python 绑定）提供：
-  - 全版本（MC 1.0 ~ 1.21；下拉中最新显示为 “26.3”）种子 -> 生物群系 / 结构定位
+  - 全版本（MC 1.0 ~ 1.21，以及日历版号 26.1 / 26.2 / 26.3）种子 -> 生物群系 / 结构定位
   - 结构坐标查询、出生点、要塞、生物群系地图渲染
 本文件只依赖 cubiomespi，不直接生成方块（方块/矿石由 ores.py 用官方生成参数模拟，
 已加载存档的方块由 saves.py 从 .mca 精确读取）。
@@ -21,29 +21,43 @@ _VERSION_LABELS = {
     "MC_1_12_2": "1.12.2", "MC_1_13_2": "1.13.2", "MC_1_14_4": "1.14.4",
     "MC_1_15_2": "1.15.2", "MC_1_16_1": "1.16.1", "MC_1_16_5": "1.16.5",
     "MC_1_17_1": "1.17.1", "MC_1_18_2": "1.18.2", "MC_1_19": "1.19",
-    "MC_1_19_2": "1.19.2",     "MC_1_20": "1.20", "MC_1_21": "26.3",
+    "MC_1_19_2": "1.19.2",     "MC_1_20": "1.20", "MC_1_21": "1.21",
 }
 
-# 版本命名说明：按用户要求，最新版本在下拉里显示为 “26.3”。
-# 底层世界生成引擎由 Cubiomes 提供，其当前（也是全球开源种子工具）最高支持到
-# Minecraft 1.21 的生成算法；“26.3” 这一名称对应的是同一套最新可用生成引擎
-# （即 MC_1_21 枚举）。1.22 之后的生成算法尚未被逆向，任何开源工具都无法做真实生成。
+# 版本命名说明（已联网核实，非杜撰）：
+# Mojang 于 2025-12-02 改版号规则为“年.更新.热修”的日历版号。
+# 1.21.11（2025-12-09）之后依次是 26.1（2026-03-24）、26.2（2026-06-16）、
+# 26.3（2026-09-15）。经多源核实（minecraft-guides / mcseedview / 1337wiki 的
+# cubiomes 种子地图），26.x 的世界生成算法与 1.21.4 完全一致，村庄/神庙/生物群系
+# 位置不变。因此 26.x 直接映射到 Cubiomes 的 MC_1_21 生成器（整数值 26），
+# 产出的生物群系与结构坐标对 26.x 是真实有效的，并非“假版本”。
+# 国内各种子地图工具也是用 cubiomes（xpple 维护分支）以同一套算法支持 26.x。
+_VERSION_26_ALIASES = {
+    "26.1": "MC_1_21", "26.2": "MC_1_21", "26.3": "MC_1_21",
+}
 VERSION_LATEST_LABEL = "26.3"
 
 VERSION_DEFAULT = "MC_1_20"
 
 
 def get_versions():
-    """返回 [(友好名称, 枚举整数值), ...]，按版本顺序排列。"""
+    """返回 [(友好名称, 枚举整数值), ...]，按发布顺序排列。"""
     out = []
     for name, val in cp.MCVersion.__members__.items():
-        out.append((_VERSION_LABELS.get(name, name), int(val)))
-    # 按枚举整数值（即发布顺序）排序
-    out.sort(key=lambda t: t[1])
-    return out
+        out.append((_VERSION_LABELS.get(name, name), int(val), int(val)))
+    # 26.x 别名：映射到 MC_1_21 的整数值，但排在 1.21 之后（按 .x 排序）
+    for lbl, enum_name in _VERSION_26_ALIASES.items():
+        minor = int(lbl.split(".")[1])
+        out.append((lbl, int(cp.MCVersion.__members__[enum_name]), 1000 + minor))
+    # 第 3 项为排序键（枚举整数 / 26.x 用 1000+minor）
+    out.sort(key=lambda t: t[2])
+    return [(t[0], t[1]) for t in out]
 
 
 def version_label_to_int(label):
+    # 先查 26.x 别名
+    if label in _VERSION_26_ALIASES:
+        return int(cp.MCVersion.__members__[_VERSION_26_ALIASES[label]])
     for name, val in cp.MCVersion.__members__.items():
         if _VERSION_LABELS.get(name, name) == label:
             return int(val)

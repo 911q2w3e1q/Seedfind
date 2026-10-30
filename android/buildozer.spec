@@ -56,7 +56,12 @@ android.sdk = 33
 android.ndk = 25b
 
 # (str) 构建架构（手机几乎都是 arm64-v8a；如需旧机可加 armeabi-v7a）
+# 只编一种架构 => 只产出一个 apk，不会出“两个”
 android.archs = arm64-v8a
+
+# (str) 打包前自动执行：用 NDK 把 cubiomes 编成手机的 lib_c.so
+# 这样用户只需“一条命令” buildozer android debug，即可得到单个 apk，无需手动编 .so
+android.pre_build_cmd = tools/build_cubiomes_android.sh
 
 # (list) 权限：读取外部存档需要存储权限
 android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE

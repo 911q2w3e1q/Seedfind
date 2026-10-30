@@ -12,11 +12,25 @@ import threading
 import anvil
 from nbt.nbt import NBTFile
 
+# 维度 -> 区域文件夹候选路径（按顺序尝试，优先新布局）。
+# 1.21.x 及更早：主世界 region/、下界 DIM-1/region、末地 DIM1/region。
+# 26.x（26.1 起，2026-03）：Mojang 把各维度移入 dimensions/minecraft/<dim>/region。
 DIM_DIRS = {
-    "主世界": "region",
-    "下界": os.path.join("DIM-1", "region"),
-    "末地": os.path.join("DIM1", "region"),
+    "主世界": ["region", os.path.join("dimensions", "minecraft", "overworld", "region")],
+    "下界": [os.path.join("DIM-1", "region"),
+             os.path.join("dimensions", "minecraft", "the_nether", "region")],
+    "末地": [os.path.join("DIM1", "region"),
+             os.path.join("dimensions", "minecraft", "the_end", "region")],
 }
+
+
+def _dim_dir(folder, dim):
+    """返回该维度实际存在的区域目录（优先新布局），不存在则返回 None。"""
+    for rel in DIM_DIRS.get(dim, []):
+        p = os.path.join(folder, rel)
+        if os.path.isdir(p):
+            return p
+    return None
 
 # 常见方块配色（用于顶部方块地图渲染）
 BLOCK_COLORS = {
@@ -104,16 +118,14 @@ class Save:
 
     def dimensions(self):
         out = []
-        for dim, rel in DIM_DIRS.items():
-            p = os.path.join(self.folder, rel)
-            if os.path.isdir(p):
+        for dim in DIM_DIRS:
+            if _dim_dir(self.folder, dim) is not None:
                 out.append(dim)
         return out or ["主世界"]
 
     def _region_files(self, dim):
-        rel = DIM_DIRS.get(dim, "region")
-        p = os.path.join(self.folder, rel)
-        if not os.path.isdir(p):
+        p = _dim_dir(self.folder, dim)
+        if p is None:
             return []
         files = []
         for fn in os.listdir(p):
