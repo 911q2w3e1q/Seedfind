@@ -1,0 +1,6 @@
+cubiomespi-fork
+anvil-parser2
+nbt
+numpy
+pillow
+matplotlib
