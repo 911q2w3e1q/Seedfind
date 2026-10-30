@@ -226,9 +226,13 @@ class MapView:
         self.ax.clear()
         X, Y, Z = data.get("X"), data.get("Y"), data.get("Z")
         points = data.get("points")
-        if X is not None and len(X) > 0:
+        n = len(X) if X is not None else 0
+        if n >= 3:
             self.ax.plot_trisurf(X, Y, Z, cmap="terrain", alpha=0.85,
                                  linewidth=0, antialiased=True)
+        elif n > 0:
+            # 数据点不足以三角化(需>=3点)，退化为散点，避免崩溃
+            self.ax.scatter(X, Y, Z, c="orange", s=40, label="高度采样")
         if points:
             import numpy as np
             pa = np.array(points)
