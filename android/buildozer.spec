@@ -13,7 +13,7 @@ package.domain = com.seedquery
 source.dir = .
 
 # (list) 需要打进 APK 的源码扩展名白名单
-# 注意：cubiomes 的 C 源码(.c/.h)不打包，我们使用预编译好的 lib_c.so（见 tools/ 脚本）
+# cubiomes 的 C 源码(.c/.h)不打包，使用的是预编译好的 lib_c.so（见 pre_build_cmd）
 source.include_exts = py,png,jpg,jpeg,kv,so,txt,md,json
 
 # (list) 需要排除的目录
@@ -25,8 +25,12 @@ source.exclude_patterns = *.pyc, __pycache__, .git*, build, dist
 # (str) 主程序入口
 source.main = main.py
 
-# (list) 依赖：纯 Python 库直接写名字；cubiomespi 用本目录下的本地包（不写 PyPI 版）
-requirements = python3==3.11.9, kivy==2.3.0, matplotlib==3.7.5, numpy==1.26.4, pillow==10.4.0, anvil-parser2, nbt
+# (list) 依赖：纯 Python 库直接写名字；cubiomespi 是本目录下的本地源码包，
+#         不写 PyPI 版（避免拉到不支持 arm 的版本），由 source.dir 一起打包
+# 注意：kivy / pillow 的版本必须与 p4a 内置 recipe 的默认版本一致，
+#       否则 recipe 自带的 patch（针对 2.3.1 / 11.3.0 编写）会 hunk 失败。
+#       numpy(1.26.4) 与 matplotlib(3.7.5) 是 MesonRecipe 无 patch，可自由指定。
+requirements = python3==3.11.9, kivy==2.3.1, matplotlib==3.10.7, numpy==1.26.4, pillow==11.3.0, anvil-parser2, nbt
 
 # (str) 应用版本
 version = 1.0
@@ -34,40 +38,42 @@ version = 1.0
 # (str) 应用版本码
 android.version_code = 1
 
-# (str) 应用图标/启动图（可选，放 png 到本目录后改路径）
-# presplash.filename = %(source.dir)s/presplash.png
-# icon.filename = %(source.dir)s/icon.png
-
-[buildozer]
-
 # (int) 日志等级
 log_level = 2
 
-# (str) 目标平台
-target = android
-
-# (bool) 是否自动接受 SDK 许可
-android.accept_sdk_license = True
-
 # (str) Android API / 最低 API / NDK
 android.api = 33
-android.minapi = 21
+android.minapi = 24
 android.sdk = 33
 android.ndk = 25b
 
-# (str) 构建架构（手机几乎都是 arm64-v8a；如需旧机可加 armeabi-v7a）
-# 只编一种架构 => 只产出一个 apk，不会出“两个”
+# (str) 构建架构：只编 arm64-v8a 一种 => 只产出一个 apk，不会出“两个”
+#       注意：必须写在 [app] 节，buildozer 才读得到
 android.archs = arm64-v8a
 
-# (str) 打包前自动执行：用 NDK 把 cubiomes 编成手机的 lib_c.so
-# 这样用户只需“一条命令” buildozer android debug，即可得到单个 apk，无需手动编 .so
-android.pre_build_cmd = tools/build_cubiomes_android.sh
+# (bool) 自动接受 SDK 许可
+android.accept_sdk_license = True
 
 # (list) 权限：读取外部存档需要存储权限
 android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE
 
 # (bool) 关闭 AndroidX（kivy 2.x 一般保持默认）
 android.enable_androidx = True
+
+# (str) 打包前用 NDK 把 cubiomes 编成手机的 lib_c.so
+#       说明：buildozer 1.6 已不识别 android.pre_build_cmd 这个键，故统一由 build.sh 负责
+#       （先 bash tools/build_cubiomes_android.sh 编译 lib_c.so，再 buildozer android debug）。
+#       请使用 “bash build.sh” 一条命令出包；直接 buildozer android debug 也行，但需先手动编 .so。
+# android.pre_build_cmd = tools/build_cubiomes_android.sh
+
+# (str) 应用图标/启动图（可选，放 png 到本目录后改路径）
+# presplash.filename = %(source.dir)s/presplash.png
+# icon.filename = %(source.dir)s/icon.png
+
+[buildozer]
+
+# (str) 目标平台
+target = android
 
 # (str) buildozer 缓存目录
 build_dir = .buildozer

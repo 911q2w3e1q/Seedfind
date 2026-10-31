@@ -1,0 +1,19 @@
+# ---- buildozer / p4a 构建缓存 ----
+.buildozer/
+bin/
+obj/
+dist/
+
+# ---- 本地离线源码缓存（仅用于本机构建，不入库；获取方式见 BUILD_APK.md）----
+.*_src/
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+
+# ---- 编辑器 ----
+.idea/
+.vscode/
+*.swp
+.DS_Store
