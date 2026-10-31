@@ -26,3 +26,6 @@ android/libs/
 android/obj/
 android/cubiomespi/lib_c.so
 android/venv/
+
+# root-level apk copy (official artifact lives in android/)
+/seedquery-1.0-arm64-v8a.apk
