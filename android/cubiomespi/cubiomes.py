@@ -9,12 +9,34 @@ except ImportError:
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Find the compiled C extension (setuptools adds platform-specific suffixes like .cpython-311-darwin.so or .pyd)
-lib_files = glob.glob(os.path.join(script_dir, "lib_c.*"))
-if not lib_files:
-    raise FileNotFoundError("Compiled cubiomes library not found. Please install the package using pip.")
+# 候选加载方式（按可靠性排序）：
+#   1) 按文件名 lib_c.so —— p4a 的 SDL start.c 已把 App 原生库目录写入
+#      LD_LIBRARY_PATH，Android linker 可直接按名找到（库由系统安装到
+#      /data/app/<pkg>/lib/arm64/，与 libmain.so 同处，MIUI 等严格 ROM 也允许）。
+#   2) Python 包内（随 private.tar 解压到 App 私有目录）—— 仅作兜底，
+#      部分严格 ROM 可能拒载，故不作为首选。
+candidates = ["lib_c.so"]
+candidates += glob.glob(os.path.join(script_dir, "lib_c.*"))
 
-lib = ctypes.CDLL(lib_files[0])
+lib = None
+last_err = None
+for cand in candidates:
+    try:
+        try:
+            os.chmod(cand, 0o755)
+        except Exception:
+            pass
+        lib = ctypes.CDLL(cand)
+        if lib is not None:
+            break
+    except Exception as e:
+        last_err = e
+        continue
+
+if lib is None:
+    raise FileNotFoundError(
+        "Compiled cubiomes library not found / failed to load: {!r}".format(last_err)
+    )
 
 
 

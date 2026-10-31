@@ -4,15 +4,15 @@
 
 | 项 | 值 |
 |---|---|
-| 文件 | `bin/seedquery-1.0-arm64-v8a-debug.apk` |
-| 大小 | 43,096,362 字节（约 41 MB） |
+| 文件 | `bin/seedquery-1.0-arm64-v8a-debug.apk`（仓库交付副本为 `android/seedquery-1.0-arm64-v8a.apk`） |
+| 大小 | 43,561,462 字节（约 41.5 MB） |
 | 包名 | `com.seedquery.seedquery` |
 | 应用名 | Minecraft 种子查询器 |
 | versionName / versionCode | 1.0 / 1024100 |
 | minSdk / targetSdk | 24（Android 7.0）/ 33（Android 13） |
 | 架构 | 仅 arm64-v8a（真机绝大多数机型） |
 | 权限 | READ/WRITE_EXTERNAL_STORAGE、MANAGE_EXTERNAL_STORAGE |
-| SHA256 | `16e3cd8c79330e5f0dc2e1997dcdc436f4044fb8...`（见下方 `sha256sum`） |
+| SHA256 | `319ac62a2e8c8a79530977fc5ba1211d6154e5a1eaec11e2b1c0988beb52a7ff` |
 
 安装：把 apk 传到手机 → 用文件管理器点击安装 → 允许「安装未知来源应用」。
 
@@ -54,3 +54,23 @@ bash build.sh
    `https://mirrors.cloud.tencent.com/gradle/gradle-8.14.3-all.zip`
    预置到 `~/.gradle/wrapper/dists/gradle-8.14.3-all/<hash>/`。
 7. **版本号「26.3」**：由 `main.py` 顶部常量显示，与 apk 的 versionName（1.0）无关。
+
+## MIUI / 国产 ROM 启动闪退修复（重要）
+
+早期版本在 MIUI 14 等严格 SELinux 的国产 ROM 上，打开后停在加载界面即闪退。
+根因：`cubiomespi/lib_c.so` 仅随 Python 包（`assets/private.tar`）解压到 App 私有目录，
+而这类 ROM 会拒绝从该目录 `dlopen` 原生库（与 `libmain.so` / `libpython` 由系统安装到
+`/data/app/<pkg>/lib/arm64/` 后被允许形成对比）。
+
+修复：
+- 新增**本地 p4a recipe**（`p4a_recipes/cubiomeslib/`），把 `lib_c.so` 打进 APK 的
+  `lib/arm64-v8a/`，由系统安装到 App 原生库目录（与 `libpython` 同处，MIUI 允许加载）。
+- `cubiomespi/cubiomes.py` 改为**优先按文件名 `lib_c.so` 加载**（p4a 的 SDL `start.c` 已把
+  App 原生库目录写入 `LD_LIBRARY_PATH`，Android linker 可直接按名找到），包内路径仅作兜底。
+- `buildozer.spec` 增加 `p4a.local_recipes = ./p4a_recipes` 并把 `cubiomeslib` 加入 `requirements`。
+
+## 崩溃自报告
+
+`main.py` 顶部注册了 `sys.excepthook`：任何未捕获异常都会
+**写文件 + 弹红屏**。若仍闪退，红屏会显示 Python 完整 traceback，
+同时在 App 私有目录生成 `seedquery_crash.txt`。把红屏文字或该文件内容发回即可快速定位。

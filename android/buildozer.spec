@@ -30,7 +30,11 @@ source.main = main.py
 # 注意：kivy / pillow 的版本必须与 p4a 内置 recipe 的默认版本一致，
 #       否则 recipe 自带的 patch（针对 2.3.1 / 11.3.0 编写）会 hunk 失败。
 #       numpy(1.26.4) 与 matplotlib(3.7.5) 是 MesonRecipe 无 patch，可自由指定。
-requirements = python3==3.11.9, kivy==2.3.1, matplotlib==3.10.7, numpy==1.26.4, pillow==11.3.0, anvil-parser2, nbt
+requirements = python3==3.11.9, kivy==2.3.1, matplotlib==3.10.7, numpy==1.26.4, pillow==11.3.0, anvil-parser2, nbt, cubiomeslib
+
+# (str) 本地 p4a recipe 目录（把预编译 lib_c.so 打进 APK 的 lib/arm64-v8a/，
+#       以规避 MIUI 等 ROM 从 App 私有目录 dlopen 被拒导致的启动闪退）
+p4a.local_recipes = ./p4a_recipes
 
 # (str) 应用版本
 version = 1.0

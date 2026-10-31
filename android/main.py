@@ -10,9 +10,79 @@ Minecraft 种子查询器 —— 安卓版（Kivy）
 import os
 import sys
 import math
+import time
+import traceback
 import threading
 
 os.environ.setdefault("KIVY_NO_ARGS", "1")
+
+
+# ---------------------------------------------------------------------------
+# 崩溃自报告：捕获所有未处理异常，既写到文件，又弹出一个可读的红屏，
+# 方便在没有 logcat 的真机上快速定位启动期闪退的根因。
+# ---------------------------------------------------------------------------
+def _crash_log_path():
+    cands = []
+    a = os.environ.get("ANDROID_ARGUMENT")
+    if a:
+        cands.append(os.path.join(a, "seedquery_crash.txt"))
+    cands.append(os.path.join(os.getcwd(), "seedquery_crash.txt"))
+    for c in cands:
+        try:
+            with open(c, "w") as f:
+                f.write("")
+            return c
+        except Exception:
+            continue
+    return cands[0] if cands else "seedquery_crash.txt"
+
+
+def _report_crash(exc, where=""):
+    msg = "Seedquery 崩溃报告\n时间: %s\n位置: %s\n\n%s" % (
+        time.strftime("%Y-%m-%d %H:%M:%S"),
+        where,
+        "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
+    )
+    p = _crash_log_path()
+    try:
+        with open(p, "w") as f:
+            f.write(msg)
+    except Exception:
+        pass
+    # 尝试用 Kivy 弹一个可读的红屏
+    try:
+        from kivy.app import App as _App
+        from kivy.uix.scrollview import ScrollView as _SV
+        from kivy.uix.label import Label as _L
+        from kivy.core.window import Window as _W
+
+        class _CrashApp(_App):
+            def build(self):
+                sv = _SV()
+                lb = _L(
+                    text="运行出错（详情已写入 %s）：\n\n%s" % (p, msg),
+                    text_size=(_W.width - 24, None),
+                    halign="left",
+                    valign="top",
+                    font_size=13,
+                    color=(1, 0.55, 0.55, 1),
+                )
+                sv.add_widget(lb)
+                return sv
+
+        _CrashApp().run()
+    except Exception:
+        pass
+
+
+def _excepthook(et, ev, tb):
+    try:
+        _report_crash(ev, "uncaught")
+    except Exception:
+        pass
+
+
+sys.excepthook = _excepthook
 
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen
@@ -937,4 +1007,7 @@ class SeedQueryApp(App):
 
 
 if __name__ == "__main__":
-    SeedQueryApp().run()
+    try:
+        SeedQueryApp().run()
+    except Exception as e:
+        _report_crash(e, "run")
